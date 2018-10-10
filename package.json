@@ -1,0 +1,25 @@
+{
+  "name": "wegame-towerblocks",
+  "version": "1.0.0",
+  "main": "gulpfile.js",
+  "devDependencies": {
+    "@types/three": "^0.92.25",
+    "colors": "^1.3.2",
+    "del": "^3.0.0",
+    "gulp": "^4.0.0",
+    "gulp-imagemin": "^4.1.0",
+    "gulp-plumber": "^1.2.0",
+    "gulp-replace": "^1.0.0",
+    "gulp-sourcemaps": "^2.6.4",
+    "gulp-typescript": "^5.0.0-alpha.3",
+    "gulp-yaml": "^2.0.2",
+    "typescript": "^3.1.2"
+  },
+  "scripts": {
+    "start": "gulp",
+    "test": "gulp test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

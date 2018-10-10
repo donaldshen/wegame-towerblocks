@@ -1,0 +1,15 @@
+extends: tslint-config-standard
+rules:
+  trailing-comma: [true, { multiline: always, singleline: never }]
+  no-null-keyword: true
+  # 涉及到存取器时autofix一片混乱
+  member-ordering:
+    - true
+    - order:
+        - static-field
+        - static-method
+        - instance-field
+        - constructor
+        - instance-method
+      alphabetize: false # 还是按逻辑组织order更好
+  no-unused-expression: [true, allow-new]
