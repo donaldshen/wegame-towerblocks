@@ -1,6 +1,5 @@
-import './js/libs/weapp-adapter'
-import './js/libs/three.min'
+import 'libs/weapp-adapter'
+// @ts-ignore
+import * as THREE from 'libs/three.min'
 
-import Main from './js/main'
-
-new Main()
+console.log(THREE)
