@@ -1,38 +1,33 @@
-let instance
-
 /**
  * 统一的音效管理器
  */
 export default class Music {
-  constructor() {
-    if ( instance )
-      return instance
 
-    instance = this
+  bgmAudio = new Audio()
+  shootAudio = new Audio()
+  boomAudio = new Audio()
 
-    this.bgmAudio = new Audio()
+  constructor () {
     this.bgmAudio.loop = true
-    this.bgmAudio.src  = 'audio/bgm.mp3'
+    this.bgmAudio.src = 'audio/bgm.mp3'
 
-    this.shootAudio     = new Audio()
     this.shootAudio.src = 'audio/bullet.mp3'
 
-    this.boomAudio     = new Audio()
     this.boomAudio.src = 'audio/boom.mp3'
 
     this.playBgm()
   }
 
-  playBgm() {
+  playBgm () {
     this.bgmAudio.play()
   }
 
-  playShoot() {
+  playShoot () {
     this.shootAudio.currentTime = 0
     this.shootAudio.play()
   }
 
-  playExplosion() {
+  playExplosion () {
     this.boomAudio.currentTime = 0
     this.boomAudio.play()
   }

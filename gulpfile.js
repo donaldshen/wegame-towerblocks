@@ -67,10 +67,10 @@ function compileTS () {
   return watch(paths.ts, (src) => {
     return src
       .pipe(changed('dist', { extension: '.js' }))
-      .pipe(replace(/import .*'@\/.*'/g, function (match) {
+      .pipe(replace(/import .*'[^.].*'/g, function (match) {
         const { relative } = this.file
         const layers = relative.split(path.sep).length - 1
-        return match.replace('@/', '../'.repeat(layers))
+        return match.replace('\'', '\'' + '../'.repeat(layers))
       }))
       .pipe(sourcemaps.init())
       .pipe(ts.createProject('tsconfig.json')())

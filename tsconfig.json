@@ -7,6 +7,10 @@
     "baseUrl": "src",
     "strict": true,
     "noImplicitReturns": true,
-    "allowJs": true
-  }
+    "allowJs": true,
+    "outDir": "dist"
+  },
+  "include": [
+    "src/**/*"
+  ]
 }
