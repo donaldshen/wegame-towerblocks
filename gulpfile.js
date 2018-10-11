@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const gulp = require('gulp')
 const del = require('del')
 const imagemin = require('gulp-imagemin')
@@ -8,6 +7,7 @@ const yaml = require('gulp-yaml')
 const sourcemaps = require('gulp-sourcemaps')
 const replace = require('gulp-replace')
 const plumber = require('gulp-plumber')
+const changed = require('gulp-changed')
 
 const path = require('path')
 require('colors')
@@ -36,6 +36,7 @@ function watch (glob, cb) {
 
   const compile = (glob) => {
     const src = gulp.src(glob, { base: 'src' })
+      .pipe(changed('dist'))
       .pipe(plumber())
     return cb(src)
       .pipe(gulp.dest('dist'))
@@ -65,6 +66,7 @@ function minifyImg () {
 function compileTS () {
   return watch(paths.ts, (src) => {
     return src
+      .pipe(changed('dist', { extension: '.js' }))
       .pipe(replace(/import .*'@\/.*'/g, function (match) {
         const { relative } = this.file
         const layers = relative.split(path.sep).length - 1
@@ -93,12 +95,16 @@ function clean () {
   return del('dist/*')
 }
 
+gulp.task('clean', clean)
+
+gulp.task('compile', gulp.parallel(
+  minifyImg,
+  compileTS,
+  compileYAML,
+  copy,
+))
+
 gulp.task('default', gulp.series(
-  clean,
-  gulp.parallel(
-    minifyImg,
-    compileTS,
-    compileYAML,
-    copy,
-  )
+  'clean',
+  'compile',
 ))
