@@ -13,10 +13,10 @@ const path = require('path')
 require('colors')
 
 const paths = {
-  img: ['src/**/*.(png|jpg)'],
-  ts: ['src/**/*.(ts|js)', '!src/js/libs'],
+  img: ['src/**/*.@(png|jpg)'],
+  ts: ['src/**/*.@(ts|js)', '!src/libs'],
   yaml: ['src/**/*.yaml'],
-  copy: ['src/**/*.(json|wav|mp3)', 'src/js/libs'],
+  copy: ['src/**/*.@(json|wav|mp3)', 'src/libs'],
 }
 
 function watch (glob, cb) {
@@ -46,12 +46,10 @@ function watch (glob, cb) {
     ignoreInitial: false,
   })
     .on('add', (p) => {
-      log('   add'.green, p)
-      compile(p)
+      compile(p).on('end', () => log('   add'.green, p))
     })
     .on('change', (p) => {
-      log('change'.yellow, p)
-      compile(p)
+      compile(p).on('end', () => log('change'.yellow, p))
     })
     .on('unlink', (p) => {
       log('unlink'.red, p)
@@ -96,6 +94,7 @@ function clean () {
 }
 
 gulp.task('clean', clean)
+gulp.task('copy', copy)
 
 gulp.task('compile', gulp.parallel(
   minifyImg,

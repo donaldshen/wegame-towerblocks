@@ -1,3 +1,5 @@
+declare const canvas: HTMLCanvasElement
+
 declare namespace wxp {
   function downloadFile (config: {
     url: string
