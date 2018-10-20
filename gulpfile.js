@@ -14,9 +14,9 @@ require('colors')
 
 const paths = {
   img: ['src/**/*.@(png|jpg)'],
-  ts: ['src/**/*.@(ts|js)', '!src/libs'],
+  script: ['src/**/*.@(ts|js)', '!src/libs'],
   yaml: ['src/**/*.yaml'],
-  copy: ['src/**/*.@(json|wav|mp3)', 'src/libs'],
+  copy: ['src/**/*.@(json|wav|mp3)', 'src/libs', '!src/libs/three.min'],
 }
 
 function watch (glob, cb) {
@@ -62,7 +62,7 @@ function minifyImg () {
 }
 
 function compileTS () {
-  return watch(paths.ts, (src) => {
+  return watch(paths.script, (src) => {
     return src
       .pipe(changed('dist', { extension: '.js' }))
       .pipe(replace(/import .*'[^.].*'/g, function (match) {

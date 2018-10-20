@@ -1,8 +1,8 @@
 import 'libs/weapp-adapter'
 // @ts-ignore
-import * as TWEEN from 'libs/Tween.min'
+import 'libs/Tween.min'
 // @ts-ignore
-import * as THREE from 'libs/three3.min'
+import * as THREE from 'libs/three.min'
 
 interface BlockReturn {
   placed?: any
@@ -14,7 +14,6 @@ interface BlockReturn {
 
 class Stage {
   private camera: THREE.OrthographicCamera
-  // @ts-ignore
   private scene = new THREE.Scene()
   private renderer = new THREE.WebGLRenderer({
     canvas,
