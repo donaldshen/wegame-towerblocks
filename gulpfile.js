@@ -16,7 +16,7 @@ const paths = {
   img: ['src/**/*.@(png|jpg)'],
   script: ['src/**/*.@(ts|js)', '!src/libs'],
   yaml: ['src/**/*.yaml'],
-  copy: ['src/**/*.@(json|wav|mp3)', 'src/libs', '!src/libs/three.min'],
+  copy: ['src/**/*.@(json|wav|mp3)', 'src/libs', '!src/libs/three.min', '!src/libs/**/*.d.ts'],
 }
 
 function watch (glob, cb) {
