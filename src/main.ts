@@ -1,17 +1,18 @@
-// @ts-ignore
-import * as THREE from 'libs/three.min'
-// @ts-ignore
-import * as TWEEN from './libs/Tween.min'
+console.clear()
 
-interface BlockReturn {
-  placed?: any
-  chopped?: any
-  plane: 'x' | 'y' | 'z'
-  direction: number
-  bonus?: boolean
+function delay (time: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, time)
+  })
+}
+
+function resetOrigin (geometry: THREE.BoxGeometry) {
+  const { width, height, depth } = geometry.parameters
+  geometry.applyMatrix(new THREE.Matrix4().makeTranslation(width / 2, height / 2, depth / 2))
 }
 
 class Stage {
+  private container = document.getElementById('game')
   private camera = (() => {
     const aspect = window.innerWidth / window.innerHeight
     const d = 20
@@ -23,328 +24,358 @@ class Stage {
   private scene = new THREE.Scene()
   private renderer = (() => {
     const renderer = new THREE.WebGLRenderer({
-      canvas,
       antialias: true,
       alpha: false,
     })
     renderer.setSize(window.innerWidth, window.innerHeight)
     renderer.setClearColor('#D0CBC7', 1)
+    this.container!.appendChild(renderer.domElement)
     return renderer
   })()
 
   constructor () {
-
+    const axesHelper = new THREE.AxesHelper(20)
+    this.scene.add(axesHelper)
     // light
     const light = new THREE.DirectionalLight(0xffffff, 0.5)
     light.position.set(0, 499, 0)
     this.scene.add(light)
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.4))
+
+    window.addEventListener('resize', () => this.onResize())
+    this.onResize()
   }
 
-  setCamera (y: number, dur: number = 0.3) {
+  setCamera (y: number, dur = 300) {
     new TWEEN.Tween(this.camera.position)
-      .to({ y: y + 4 }, dur * 1000)
+      .to({ y: y + 4 }, dur)
       .easing(TWEEN.Easing.Quadratic.InOut)
       .start()
     new TWEEN.Tween(this.camera.lookAt)
-      .to({ y }, dur * 1000)
+      .to({ y }, dur)
       .easing(TWEEN.Easing.Quadratic.InOut)
       .start()
   }
 
+  onResize () {
+    const viewSize = 30
+    const { innerWidth, innerHeight } = window
+    this.renderer.setSize(innerWidth, innerHeight)
+    this.camera.left = innerWidth / - viewSize
+    this.camera.right = innerWidth / viewSize
+    this.camera.top = innerHeight / viewSize
+    this.camera.bottom = innerHeight / - viewSize
+    this.camera.updateProjectionMatrix()
+  }
+
   render () {
-    TWEEN.update()
     this.renderer.render(this.scene, this.camera)
   }
 
-  add (elem: THREE.Group) {
+  add (elem: THREE.Object3D) {
     this.scene.add(elem)
+  }
+
+  remove (elem: THREE.Object3D) {
+    this.scene.remove(elem)
   }
 }
 
 class Block {
-  static readonly STATES = { ACTIVE: 'active', STOPPED: 'stopped', MISSED: 'missed' }
   static readonly MOVE_AMOUNT = 12
+  static readonly height = 2
 
-  dimension = new THREE.Vector3(0, 0, 0)
-  position = new THREE.Vector3(0, 0, 0)
-
-  mesh: any
-  state: string
-  index: number
-  direction: number
-  colorOffset: number
-  color: THREE.Color
-  material: THREE.MeshPhongMaterial
-
-  workingPlane: 'x' | 'z'
-  workingDimension: 'x' | 'z'
+  mesh: THREE.Mesh
+  get dimension () {
+    return (this.mesh.geometry as THREE.BoxGeometry).parameters
+  }
+  get position () {
+    return this.mesh.position
+  }
+  movingAxis: 'x' | 'z' = 'x'
+  direction = 0.1
+  colorOffset = Math.round(Math.random() * 100)
+  material = new THREE.MeshPhongMaterial({ color: 0x333344, flatShading: true })
+  private floor = 1
+  private active = false
 
   constructor (
-    public targetBlock: Block,
+    private readonly stage: Stage,
+    private readonly blockBelow?: Block,
   ) {
+    const position = new THREE.Vector3()
+    let dimension = { width: 10, height: Block.height, depth: 10 }
 
-    this.index = this.targetBlock.index + 1
-    this.state = Block.STATES[this.index > 1 ? 'ACTIVE' : 'STOPPED']
+    if (blockBelow) {
+      this.floor = blockBelow.floor + 1
+      this.colorOffset = blockBelow.colorOffset + 1
+      this.active = true
+      this.movingAxis = blockBelow.movingAxis === 'z' ? 'x' : 'z'
+      dimension = blockBelow.dimension
+      position.copy(blockBelow.position)
+      position.y += Block.height
+      position[this.movingAxis] = Block.MOVE_AMOUNT * (Math.random() > 0.5 ? -1 : 1)
 
-    this.workingPlane = this.index % 2 ? 'x' : 'z'
-    this.workingDimension = this.index % 2 ? 'x' : 'z'
+      const offset = this.colorOffset
+      this.material.color = new THREE.Color(
+        0.8 + 0.2 * Math.sin(0.3 * offset),
+        0.8 + 0.2 * Math.sin(0.3 * offset + 2),
+        0.8 + 0.2 * Math.sin(0.3 * offset + 4),
+      )
 
-    // set the dimensions from the target block, or defaults.
-    this.dimension = Object.assign({}, this.targetBlock.dimension)
-    this.position = Object.assign({}, this.targetBlock.position, {
-      y: this.dimension.y * this.index,
-    })
-    if (this.state === Block.STATES.ACTIVE) {
-      this.position[this.workingPlane] = Block.MOVE_AMOUNT * (Math.random() > 0.5 ? -1 : 1)
+      // set direction
+      this.direction = Math.abs(blockBelow.direction) + 0.005
     }
 
-    // set color
-    this.colorOffset = this.targetBlock.colorOffset
-    const offset = this.index + this.colorOffset
-    this.color = new THREE.Color(
-      0.8 + 0.2 * Math.sin(0.3 * offset),
-      0.8 + 0.2 * Math.sin(0.3 * offset + 2),
-      0.8 + 0.2 * Math.sin(0.3 * offset + 4),
-    )
-
-    // set direction
-    this.direction = Math.max(-4, -0.1 - this.index * 0.005)
-
     // create block
-
-    const { x, y, z } = this.dimension
-    const geometry = new THREE.BoxGeometry(x, y, z)
-    geometry.applyMatrix(new THREE.Matrix4().makeTranslation(x / 2, y / 2, z / 2))
-    this.material = new THREE.MeshPhongMaterial({ color: this.color })
+    const { width, height, depth } = dimension
+    const geometry = new THREE.BoxGeometry(width, height, depth)
+    resetOrigin(geometry)
     this.mesh = new THREE.Mesh(geometry, this.material)
-    this.mesh.position.copy(this.position)
+    this.position.copy(position)
+    stage.add(this.mesh)
   }
 
   place () {
-    this.state = Block.STATES.STOPPED
+    if (!this.blockBelow) throw new Error('底层block不能被place')
+
     const {
-      targetBlock,
-      workingDimension: wd,
-      workingPlane: wp,
+      position,
+      dimension,
+      blockBelow: below,
+      movingAxis: ma,
     } = this
 
-    let overlap = targetBlock.dimension[wd] - Math.abs(this.position[wp] - targetBlock.position[wp])
+    const chopping = ma === 'x' ? 'width' : 'depth'
 
-    const blocksToReturn: BlockReturn = {
-      plane: wp,
-      direction: this.direction,
-    }
+    this.active = false
 
-    if (overlap > 0) {
-      if (this.dimension[wd] - overlap < 0.3) {
-        overlap = this.dimension[wd]
-        blocksToReturn.bonus = true
-        this.position.x = targetBlock.position.x
-        this.position.z = targetBlock.position.z
-        this.dimension.x = targetBlock.dimension.x
-        this.dimension.z = targetBlock.dimension.z
-      }
+    const overlap = dimension[chopping] - Math.abs(position[ma] - below.position[ma])
 
-      this.dimension[wd] = overlap
-
-      let { x, y, z } = this.dimension
-      const placedGeometry = new THREE.BoxGeometry(x, y, z)
-      placedGeometry.applyMatrix(new THREE.Matrix4().makeTranslation(x / 2, y / 2, z / 2))
-      const placedMesh = new THREE.Mesh(placedGeometry, this.material)
-
-      if (wd === 'x') x -= overlap
-      else z -= overlap
-      const choppedGeometry = new THREE.BoxGeometry(x, y, z)
-      choppedGeometry.applyMatrix(new THREE.Matrix4().makeTranslation(x / 2, y / 2, z / 2))
-      const choppedMesh = new THREE.Mesh(choppedGeometry, this.material)
-
-      const choppedPosition = this.position.clone()
-
-      if (this.position[wp] < targetBlock.position[wp]) {
-        this.position[wp] = targetBlock.position[wp]
-      } else {
-        choppedPosition[wp] += overlap
-      }
-
-      placedMesh.position.copy(this.position)
-      choppedMesh.position.copy(choppedPosition)
-
-      blocksToReturn.placed = placedMesh
-      if (!blocksToReturn.bonus) blocksToReturn.chopped = choppedMesh
+    if (overlap <= 0) {
+      this.drop()
+      return false
     } else {
-      this.state = Block.STATES.MISSED
+      if (dimension[chopping] - overlap < 0.3) {
+        position[ma] = below.position[ma]
+      } else {
+        const dimensionChopped = Object.assign({}, dimension)
+        dimension[chopping] = overlap
+        dimensionChopped[chopping] -= overlap
+
+        const placedGeometry = new THREE.BoxGeometry(
+          dimension.width,
+          dimension.height,
+          dimension.depth,
+        )
+        resetOrigin(placedGeometry)
+        this.stage.remove(this.mesh)
+        this.mesh = new THREE.Mesh(placedGeometry, this.material)
+        this.stage.add(this.mesh)
+
+        const choppedGeometry = new THREE.BoxGeometry(
+          dimensionChopped.width,
+          dimensionChopped.height,
+          dimensionChopped.depth,
+        )
+        resetOrigin(choppedGeometry)
+        const chopped = new THREE.Mesh(choppedGeometry, this.material)
+        this.stage.add(chopped)
+
+        this.position.copy(position)
+        chopped.position.copy(position)
+        // NOTE: block的原点在端点处
+        if (position[ma] < below.position[ma]) {
+          this.position[ma] = below.position[ma]
+        } else {
+          chopped.position[ma] += overlap
+        }
+
+        this.drop(chopped)
+      }
+
+      return true
+    }
+  }
+
+  drop (chopped?: THREE.Mesh) {
+    const dur = 1500
+    const ma = this.movingAxis
+    const positionTo = { x: '+0', z: '+0', y: '-30' }
+
+    if (chopped) {
+      const isChoppedBefore = chopped.position[ma] > this.position[ma]
+
+      positionTo[ma] = `${ isChoppedBefore ? '+' : '-' }${ 40 * Math.abs(this.direction) }`
+
+      const decisionTree: { [k: string]: {
+        [k2: string]: { axis: 'x' | 'z', factor: -1 | 1 } }
+      } = {
+        x: {
+          true: { axis: 'z', factor: -1 },
+          false: { axis: 'z', factor: 1 },
+        },
+        z: {
+          true: { axis: 'x', factor: 1 },
+          false: { axis: 'x', factor: -1 },
+        },
+      }
+      const { axis, factor } = decisionTree[ma][`${ isChoppedBefore }`]
+      const from = { x: 0, y: 0, z: 0 }
+      const to = Object.assign({
+        x: 0.1,
+        y: Math.random() * 0.1,
+        z: 0.1,
+      }, { [axis]: 5 * factor })
+      // BUG: 没法直接放chopped.rotation
+      new TWEEN.Tween(from)
+        .to(to, dur)
+        .easing(TWEEN.Easing.Quadratic.InOut)
+        .onUpdate(() => Object.assign(chopped!.rotation, from))
+        .start()
+    } else {
+      chopped = this.mesh
+      positionTo[ma] = `${ this.direction > 0 ? '+' : '' }${ 100 * this.direction }`
     }
 
-    return blocksToReturn
+    new TWEEN.Tween(chopped!.position)
+      .to(positionTo, dur)
+      .easing(TWEEN.Easing.Quadratic.InOut)
+      .onComplete(() => this.stage.remove(chopped!))
+      .start()
   }
 
   tick () {
-    if (this.state !== Block.STATES.ACTIVE) return
+    if (!this.active) return
 
-    const wp = this.workingPlane
-    const p = this.position[wp]
+    const ma = this.movingAxis
+    const p = this.mesh.position[ma]
     if (Math.abs(p) > Block.MOVE_AMOUNT) this.direction *= -1
-    this.position[wp] += this.direction
-    this.mesh.position[wp] = this.position[wp]
+    this.mesh.position[ma] += this.direction
   }
 }
 
+enum GAME_STATES {
+  READY = 'ready',
+  PLAYING = 'playing',
+  ENDED = 'ended',
+  RESETTING = 'resetting',
+}
+
 class Game {
-  static readonly STATES = {
-    'LOADING': 'loading',
-    'PLAYING': 'playing',
-    'READY': 'ready',
-    'ENDED': 'ended',
-    'RESETTING': 'resetting',
-  }
-  blocks: Block[] = []
-  state: string = Game.STATES.LOADING
 
-  // groups
+	// UI elements
 
-  newBlocks = new THREE.Group()
-  placedBlocks = new THREE.Group()
-  choppedBlocks = new THREE.Group()
-
-  // UI elements
-
-  score = 0
   mainContainer = document.getElementById('container')
+  scoreContainer = document.getElementById('score')
   startButton = document.getElementById('start-button')
   instructions = document.getElementById('instructions')
 
   stage = new Stage()
-
-  constructor () {
-
-    this.stage.add(this.newBlocks)
-    this.stage.add(this.placedBlocks)
-    this.stage.add(this.choppedBlocks)
-
-    this.addBlock()
-    this.tick()
-
-    this.updateState(Game.STATES.READY)
-
-    document.addEventListener('click', e => {
-      this.onAction()
-    })
-
-    document.addEventListener('touchstart', e => {
-      e.preventDefault()
-      // this.onAction();
-
-      // ☝️ this triggers after click on android so you
-      // insta-lose, will figure it out later.
-    })
+  blocks: Block[] = [new Block(this.stage)]
+  state = GAME_STATES.READY
+  get score () {
+    return Math.max(0, this.blocks.length - 2)
   }
 
-  updateState (newState: string) {
+  constructor () {
+    this.stage.setCamera(2)
+
+    this.tick()
+
+    this.updateState(GAME_STATES.READY)
+
+    const onAction = () => {
+      switch (this.state) {
+        case GAME_STATES.READY:
+          this.startGame()
+          break
+        case GAME_STATES.PLAYING:
+          this.placeBlock()
+          break
+        case GAME_STATES.ENDED:
+          this.restartGame()
+          break
+      }
+    }
+
+    document.addEventListener('keydown', e => e.keyCode === 32 && onAction())
+    document.addEventListener('click', onAction)
+  }
+
+  updateState (newState: GAME_STATES) {
+    Object.values(GAME_STATES)
+      .forEach(v => this.mainContainer!.classList.remove(v))
+    this.mainContainer!.classList.add(newState)
     this.state = newState
   }
 
-  onAction () {
-    switch (this.state) {
-      case Game.STATES.READY:
-        this.startGame()
-        break
-      case Game.STATES.PLAYING:
-        this.placeBlock()
-        break
-      case Game.STATES.ENDED:
-        this.restartGame()
-        break
-    }
+  updateScore () {
+    this.scoreContainer!.innerHTML = `${ this.score }`
   }
 
   startGame () {
-    if (this.state !== Game.STATES.PLAYING) {
-      this.score = 0
-      this.updateState(Game.STATES.PLAYING)
-      this.addBlock()
+    switch (this.state) {
+      case GAME_STATES.READY:
+      case GAME_STATES.RESETTING:
+        this.updateState(GAME_STATES.PLAYING)
+        this.addBlock()
+        this.updateScore()
+        break
     }
-  }
-
-  restartGame () {
-    this.updateState(Game.STATES.RESETTING)
-
-    let oldBlocks = this.placedBlocks.children
-    let removeSpeed = 0.2
-    let delayAmount = 0.02
-    for (let i = 0; i < oldBlocks.length; i++) {
-      // TweenLite.to(oldBlocks[i].scale, removeSpeed, { x: 0, y: 0, z: 0, delay: (oldBlocks.length - i) * delayAmount, ease: Power1.easeIn, onComplete: () => this.placedBlocks.remove(oldBlocks[i]) })
-      // TweenLite.to(oldBlocks[i].rotation, removeSpeed, { y: 0.5, delay: (oldBlocks.length - i) * delayAmount, ease: Power1.easeIn })
-    }
-    let cameraMoveSpeed = removeSpeed * 2 + (oldBlocks.length * delayAmount)
-    this.stage.setCamera(2, cameraMoveSpeed)
-
-    let countdown = { value: this.blocks.length - 1 }
-    // TweenLite.to(countdown, cameraMoveSpeed, { value: 0, onUpdate: () => { this.scoreContainer.innerHTML = String(Math.round(countdown.value)) } })
-
-    this.blocks = this.blocks.slice(0, 1)
-
-    setTimeout(() => {
-      this.startGame()
-    }, cameraMoveSpeed * 1000)
-
-  }
-
-  placeBlock () {
-    let currentBlock = this.blocks[this.blocks.length - 1]
-    let newBlocks: BlockReturn = currentBlock.place()
-    this.newBlocks.remove(currentBlock.mesh)
-    if (newBlocks.placed) this.placedBlocks.add(newBlocks.placed)
-    if (newBlocks.chopped) {
-      this.choppedBlocks.add(newBlocks.chopped)
-      // let positionParams = { y: '-=30', ease: Power1.easeIn, onComplete: () => this.choppedBlocks.remove(newBlocks.chopped) }
-      let rotateRandomness = 10
-      let rotationParams = {
-        delay: 0.05,
-        x: newBlocks.plane === 'z' ? ((Math.random() * rotateRandomness) - (rotateRandomness / 2)) : 0.1,
-        z: newBlocks.plane === 'x' ? ((Math.random() * rotateRandomness) - (rotateRandomness / 2)) : 0.1,
-        y: Math.random() * 0.1,
-      }
-      if (newBlocks.chopped.position[newBlocks.plane] > newBlocks.placed.position[newBlocks.plane]) {
-        positionParams[newBlocks.plane] = '+=' + (40 * Math.abs(newBlocks.direction))
-      } else {
-        positionParams[newBlocks.plane] = '-=' + (40 * Math.abs(newBlocks.direction))
-      }
-      TweenLite.to(newBlocks.chopped.position, 1, positionParams)
-      TweenLite.to(newBlocks.chopped.rotation, 1, rotationParams)
-
-    }
-
-    this.addBlock()
   }
 
   addBlock () {
-    const lastBlock = this.blocks[this.blocks.length - 1]
-
-    if (lastBlock && lastBlock.state === lastBlock.STATES.MISSED) {
-      return this.endGame()
-    }
-
-    this.score = this.blocks.length - 1
-
-    const newKidOnTheBlock = new Block(lastBlock)
-    this.newBlocks.add(newKidOnTheBlock.mesh)
-    this.blocks.push(newKidOnTheBlock)
-
-    this.stage.setCamera(this.blocks.length * 2)
-
-    if (this.blocks.length >= 5) this.instructions.classList.add('hide')
+    const { blocks } = this
+    blocks.unshift(new Block(this.stage, blocks[0]))
+    this.stage.setCamera(blocks.length * 2)
+    this.instructions!.classList[blocks.length > 4 ? 'add' : 'remove']('hide')
   }
 
-  endGame () {
-    this.updateState(Game.STATES.ENDED)
+  placeBlock () {
+    if (this.blocks[0].place()) {
+      this.addBlock()
+      this.updateScore()
+    } else {
+      this.updateState(GAME_STATES.ENDED)
+    }
+  }
+
+  async restartGame () {
+    this.updateState(GAME_STATES.RESETTING)
+
+    const { blocks } = this
+    this.blocks = [blocks.pop()!]
+
+    const dur = 200
+    const delayAmount = 20
+
+    const cameraSpeed = dur * 2 + (blocks.length * delayAmount)
+    this.stage.setCamera(2, cameraSpeed)
+    setTimeout(() => this.startGame(), cameraSpeed)
+
+    while (blocks.length) {
+      const { mesh } = blocks.shift()!
+      this.updateScore()
+      new TWEEN.Tween(mesh.scale)
+        .to({ x: 0, y: 0, z: 0 }, dur)
+        .easing(TWEEN.Easing.Quadratic.In)
+        .start()
+      new TWEEN.Tween(mesh.rotation)
+        .to({ y: 0.5 }, dur)
+        .easing(TWEEN.Easing.Quadratic.In)
+        .onComplete(() => this.stage.remove(mesh))
+        .start()
+      await delay(delayAmount)
+    }
   }
 
   tick () {
-    this.blocks[this.blocks.length - 1].tick()
+    TWEEN.update()
+    this.blocks.forEach(b => b.tick())
     this.stage.render()
     requestAnimationFrame(() => this.tick())
   }
 }
 
-let game = new Game()
+new Game()

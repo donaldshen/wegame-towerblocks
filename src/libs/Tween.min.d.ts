@@ -4,7 +4,7 @@
 // Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
 
 // export as namespace TWEEN
-// declare namespace TWEEN {
+declare namespace TWEEN {
     export function getAll(): Tween[];
     export function removeAll(): void;
     export function add(tween: Tween): void;
