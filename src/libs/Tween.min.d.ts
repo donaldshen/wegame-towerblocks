@@ -3,8 +3,8 @@
 // Definitions by: jordan <https://github.com/Amos47>, sunetos <https://github.com/sunetos>, jzarnikov <https://github.com/jzarnikov>, alexburner <https://github.com/alexburner>
 // Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
 
-// export as namespace TWEEN
-declare namespace TWEEN {
+export as namespace TWEEN
+// declare namespace TWEEN {
     export function getAll(): Tween[];
     export function removeAll(): void;
     export function add(tween: Tween): void;

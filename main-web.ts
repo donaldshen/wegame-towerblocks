@@ -1,7 +1,11 @@
-import * as THREE from './libs/three.min'
-import * as TWEEN from './libs/Tween.min'
-import { delay } from './util'
-window.TWEEN = TWEEN
+console.clear()
+
+function delay (time: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, time)
+  })
+}
+
 function resetOrigin (geometry: THREE.BoxGeometry) {
   const { width, height, depth } = geometry.parameters
   geometry.applyMatrix(new THREE.Matrix4().makeTranslation(width / 2, height / 2, depth / 2))
@@ -19,12 +23,12 @@ class Stage {
   private scene = new THREE.Scene()
   private renderer = (() => {
     const renderer = new THREE.WebGLRenderer({
-      canvas,
       antialias: true,
       alpha: false,
     })
     renderer.setSize(window.innerWidth, window.innerHeight)
     renderer.setClearColor('#D0CBC7', 1)
+    document.getElementById('game')!.appendChild(renderer.domElement)
     return renderer
   })()
 
@@ -43,11 +47,11 @@ class Stage {
 
   setCamera (y: number, dur = 300) {
     new TWEEN.Tween(this.camera.position)
-      .to({ y: y + 4 }, dur / 1000)
+      .to({ y: y + 4 }, dur)
       .easing(TWEEN.Easing.Quadratic.InOut)
       .start()
     new TWEEN.Tween(this.camera.lookAt)
-      .to({ y }, dur / 1000)
+      .to({ y }, dur)
       .easing(TWEEN.Easing.Quadratic.InOut)
       .start()
   }
@@ -224,7 +228,7 @@ class Block {
       }, { [axis]: 5 * factor })
       // BUG: 没法直接放chopped.rotation
       new TWEEN.Tween(from)
-        .to(to, dur / 1000)
+        .to(to, dur)
         .easing(TWEEN.Easing.Quadratic.InOut)
         .onUpdate(() => Object.assign(chopped!.rotation, from))
         .start()
@@ -234,7 +238,7 @@ class Block {
     }
 
     new TWEEN.Tween(chopped!.position)
-      .to(positionTo, dur / 1000)
+      .to(positionTo, dur)
       .easing(TWEEN.Easing.Quadratic.InOut)
       .onComplete(() => this.stage.remove(chopped!))
       .start()
@@ -259,6 +263,13 @@ enum GAME_STATES {
 
 class Game {
 
+	// UI elements
+
+  mainContainer = document.getElementById('container')
+  scoreContainer = document.getElementById('score')
+  startButton = document.getElementById('start-button')
+  instructions = document.getElementById('instructions')
+
   stage = new Stage()
   blocks: Block[] = [new Block(this.stage)]
   state = GAME_STATES.READY
@@ -270,6 +281,8 @@ class Game {
     this.stage.setCamera(2)
 
     this.tick()
+
+    this.updateState(GAME_STATES.READY)
 
     const onAction = () => {
       switch (this.state) {
@@ -285,18 +298,26 @@ class Game {
       }
     }
 
-    wx.onTouchEnd(onAction)
+    document.addEventListener('keydown', e => e.keyCode === 32 && onAction())
+    document.addEventListener('click', onAction)
+  }
+
+  updateState (newState: GAME_STATES) {
+    Object.values(GAME_STATES)
+      .forEach(v => this.mainContainer!.classList.remove(v))
+    this.mainContainer!.classList.add(newState)
+    this.state = newState
   }
 
   updateScore () {
-    console.log(this.score)
+    this.scoreContainer!.innerHTML = `${ this.score }`
   }
 
   startGame () {
     switch (this.state) {
       case GAME_STATES.READY:
       case GAME_STATES.RESETTING:
-        this.state = GAME_STATES.PLAYING
+        this.updateState(GAME_STATES.PLAYING)
         this.addBlock()
         this.updateScore()
         break
@@ -307,6 +328,7 @@ class Game {
     const { blocks } = this
     blocks.unshift(new Block(this.stage, blocks[0]))
     this.stage.setCamera(blocks.length * 2)
+    this.instructions!.classList[blocks.length > 4 ? 'add' : 'remove']('hide')
   }
 
   placeBlock () {
@@ -314,12 +336,12 @@ class Game {
       this.addBlock()
       this.updateScore()
     } else {
-      this.state = GAME_STATES.ENDED
+      this.updateState(GAME_STATES.ENDED)
     }
   }
 
   async restartGame () {
-    this.state = GAME_STATES.RESETTING
+    this.updateState(GAME_STATES.RESETTING)
 
     const { blocks } = this
     this.blocks = [blocks.pop()!]
@@ -335,11 +357,11 @@ class Game {
       const { mesh } = blocks.shift()!
       this.updateScore()
       new TWEEN.Tween(mesh.scale)
-        .to({ x: 0, y: 0, z: 0 }, dur / 1000)
+        .to({ x: 0, y: 0, z: 0 }, dur)
         .easing(TWEEN.Easing.Quadratic.In)
         .start()
       new TWEEN.Tween(mesh.rotation)
-        .to({ y: 0.5 }, dur / 1000)
+        .to({ y: 0.5 }, dur)
         .easing(TWEEN.Easing.Quadratic.In)
         .onComplete(() => this.stage.remove(mesh))
         .start()
