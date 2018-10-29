@@ -1,7 +1,8 @@
 import * as THREE from './libs/three.min'
 import * as TWEEN from './libs/Tween.min'
+import helvetiker from './helvetiker'
 import { delay } from './util'
-window.TWEEN = TWEEN
+
 function resetOrigin (geometry: THREE.BoxGeometry) {
   const { width, height, depth } = geometry.parameters
   geometry.applyMatrix(new THREE.Matrix4().makeTranslation(width / 2, height / 2, depth / 2))
@@ -265,6 +266,7 @@ class Game {
   get score () {
     return Math.max(0, this.blocks.length - 2)
   }
+  scoreMesh: THREE.Mesh | undefined
 
   constructor () {
     this.stage.setCamera(2)
@@ -289,7 +291,25 @@ class Game {
   }
 
   updateScore () {
-    console.log(this.score)
+    const text = `${this.score}`
+    const geometry = new THREE.TextGeometry(text, {
+      font: new THREE.Font(helvetiker),
+      size: 6,
+      height: 1,
+    })
+    const { color } = this.blocks[0].material
+    const material = new THREE.MeshPhongMaterial({ color, flatShading: true })
+    const mesh = new THREE.Mesh(geometry, material)
+    if (this.scoreMesh) {
+      this.stage.remove(this.scoreMesh)
+      mesh.position.copy(this.scoreMesh.position)
+      this.scoreMesh = mesh
+    }
+    this.stage.add(mesh)
+    this.scoreMesh = mesh
+    new TWEEN.Tween(mesh.position)
+      .to({ y: this.blocks.length * Block.height + 6 }, 0.2)
+      .start()
   }
 
   startGame () {
@@ -322,16 +342,14 @@ class Game {
     this.state = GAME_STATES.RESETTING
 
     const { blocks } = this
-    this.blocks = [blocks.pop()!]
 
     const dur = 200
     const delayAmount = 20
 
     const cameraSpeed = dur * 2 + (blocks.length * delayAmount)
     this.stage.setCamera(2, cameraSpeed)
-    setTimeout(() => this.startGame(), cameraSpeed)
 
-    while (blocks.length) {
+    while (blocks.length > 1) {
       const { mesh } = blocks.shift()!
       this.updateScore()
       new TWEEN.Tween(mesh.scale)
@@ -345,6 +363,7 @@ class Game {
         .start()
       await delay(delayAmount)
     }
+    this.startGame()
   }
 
   tick () {
